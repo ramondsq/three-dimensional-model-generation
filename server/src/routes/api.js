@@ -115,7 +115,14 @@ async function pollUntilComplete(taskId, jobId) {
   const deadline = start + 15 * 60 * 1000; // 15 min
   let interval = 2000;
   while (Date.now() < deadline) {
-    const status = await provider.checkStatus(taskId);
+    let status;
+    try {
+      status = await provider.checkStatus(taskId);
+    } catch (e) {
+      const msg = e?.response?.data?.message || e.message || 'status check failed';
+      updateJob(jobId, { status: 'error', error: msg });
+      return;
+    }
     if (status.status === 'SUCCEEDED' && status.modelUrl) {
       const fileInfo = await provider.downloadModel(status.modelUrl, jobId);
       const publicUrl = `${process.env.PUBLIC_BASE_URL || 'http://localhost:5001'}/files/${fileInfo.fileName}`;

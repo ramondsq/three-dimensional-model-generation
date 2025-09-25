@@ -133,8 +133,23 @@ Then open the frontend URL printed by Vite (usually http://localhost:5173). The 
 
 - Backend env (`server/.env`):
   - `PORT=5001`
-  - `MESHY_API_BASE=https://api.meshy.ai/v2`
+  - `MESHY_API_BASE_TEXT=https://api.meshy.ai/openapi/v2`
+  - `MESHY_API_BASE_IMAGE=https://api.meshy.ai/openapi/v1`
   - `MESHY_API_KEY=your_api_key_here`
+  - `MESHY_MODE=preview` (valid values: preview | refine)
+  - Optional tuning:
+  - Image-specific options:
+    - `MESHY_SYMMETRY_MODE=off|auto|on`
+    - `MESHY_SHOULD_TEXTURE=true|false`
+    - `MESHY_ENABLE_PBR=true|false`
+    - `MESHY_IS_A_T_POSE=true|false`
+    - `MESHY_MODERATION=true|false`
+    - `MESHY_USE_TEXTURE_PROMPT=true|false` (if true, frontend prompt is used as texture_prompt)
+    - `MESHY_ART_STYLE=realistic | sculpture`
+    - `MESHY_AI_MODEL=meshy-4 | meshy-5 | latest`
+    - `MESHY_TOPOLOGY=triangle | quad`
+    - `MESHY_TARGET_POLYCOUNT=30000`
+    - `MESHY_SHOULD_REMESH=true | false`
   - `PUBLIC_BASE_URL=http://localhost:5001` (for absolute file URLs in responses)
   - `RATE_LIMIT_RPS=2` (simple token bucket per process)
   - `PROVIDER=meshy` (set to `mock` to develop without calling external APIs)

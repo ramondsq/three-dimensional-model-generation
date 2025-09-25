@@ -2,9 +2,9 @@ import axios from 'axios';
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import FormData from 'form-data';
 
-const API_BASE = process.env.MESHY_API_BASE || 'https://api.meshy.ai/v2';
+const API_BASE_TEXT = process.env.MESHY_API_BASE_TEXT || process.env.MESHY_API_BASE || 'https://api.meshy.ai/openapi/v2';
+const API_BASE_IMAGE = process.env.MESHY_API_BASE_IMAGE || 'https://api.meshy.ai/openapi/v1';
 const KEY = process.env.MESHY_API_KEY;
 
 if (!KEY) {
@@ -18,35 +18,92 @@ const headers = () => ({
 
 export const meshyProvider = {
   async submitText(prompt) {
-    // Meshy text-to-3d endpoint (example structure, may need adjustments based on latest docs)
-    const { data } = await axios.post(
-      `${API_BASE}/text-to-3d`,
-      { prompt, mode: 'auto' },
-      { headers: headers() }
-    );
-    return data.task_id || data.id;
+    // Meshy text-to-3d: mode must be one of ['preview','refine']
+    const mode = (process.env.MESHY_MODE || 'preview').toLowerCase();
+    const payload = { prompt, mode };
+    // Optional tuning via env
+    if (process.env.MESHY_ART_STYLE) payload.art_style = process.env.MESHY_ART_STYLE;
+    if (process.env.MESHY_AI_MODEL) payload.ai_model = process.env.MESHY_AI_MODEL;
+    if (process.env.MESHY_TOPOLOGY) payload.topology = process.env.MESHY_TOPOLOGY;
+    if (process.env.MESHY_TARGET_POLYCOUNT) payload.target_polycount = Number(process.env.MESHY_TARGET_POLYCOUNT);
+    if (process.env.MESHY_SHOULD_REMESH) payload.should_remesh = /^true$/i.test(process.env.MESHY_SHOULD_REMESH);
+
+  const { data } = await axios.post(`${API_BASE_TEXT}/text-to-3d`, payload, { headers: headers() });
+    // Official docs: { result: "<taskId>" }
+    const taskId = data?.result || data?.id || data?.task_id || data?.taskId;
+    if (!taskId) {
+      console.error('[meshy.submitText] Unexpected response format:', safePreview(data));
+      throw new Error('Meshy: Failed to create task (unexpected response). Check server logs.');
+    }
+    return taskId;
   },
 
   async submitImage(buffer, mimeType, prompt) {
-    // Create a multipart form request
-    const form = new FormData();
-    form.append('image', buffer, { filename: 'input', contentType: mimeType || 'image/jpeg' });
-    if (prompt) form.append('prompt', prompt);
+    // Build JSON payload with image_url (data URI)
+    const b64 = Buffer.from(buffer).toString('base64');
+    const dataUri = `data:${mimeType || 'image/jpeg'};base64,${b64}`;
+    const payload = { image_url: dataUri };
+    if (process.env.MESHY_AI_MODEL) payload.ai_model = process.env.MESHY_AI_MODEL;
+    if (process.env.MESHY_TOPOLOGY) payload.topology = process.env.MESHY_TOPOLOGY;
+    if (process.env.MESHY_TARGET_POLYCOUNT) payload.target_polycount = Number(process.env.MESHY_TARGET_POLYCOUNT);
+    if (process.env.MESHY_SYMMETRY_MODE) payload.symmetry_mode = process.env.MESHY_SYMMETRY_MODE; // off|auto|on
+    if (process.env.MESHY_SHOULD_REMESH) payload.should_remesh = /^true$/i.test(process.env.MESHY_SHOULD_REMESH);
+    if (process.env.MESHY_SHOULD_TEXTURE) payload.should_texture = /^true$/i.test(process.env.MESHY_SHOULD_TEXTURE);
+    if (process.env.MESHY_ENABLE_PBR) payload.enable_pbr = /^true$/i.test(process.env.MESHY_ENABLE_PBR);
+    if (process.env.MESHY_IS_A_T_POSE) payload.is_a_t_pose = /^true$/i.test(process.env.MESHY_IS_A_T_POSE);
+    if (process.env.MESHY_MODERATION) payload.moderation = /^true$/i.test(process.env.MESHY_MODERATION);
+    // Use prompt as texture_prompt if present and allowed
+    if (prompt && /^true$/i.test(process.env.MESHY_USE_TEXTURE_PROMPT ?? 'true')) payload.texture_prompt = prompt;
 
-    const { data } = await axios.post(`${API_BASE}/image-to-3d`, form, {
-      headers: { Authorization: `Bearer ${KEY}`, ...form.getHeaders() }
-    });
-    return data.task_id || data.id;
+    // Try OpenAPI v1, then legacy v2 as fallback
+    const endpoints = [
+      `${API_BASE_IMAGE}/image-to-3d`,
+      'https://api.meshy.ai/v2/image-to-3d'
+    ];
+
+    let lastErr;
+    for (const url of endpoints) {
+      try {
+        const { data } = await axios.post(url, payload, { headers: headers() });
+        const taskId = data?.result || data?.id || data?.task_id || data?.taskId;
+        if (!taskId) {
+          console.error('[meshy.submitImage] Unexpected response format:', safePreview(data));
+          throw new Error('Meshy: Failed to create task (unexpected response). Check server logs.');
+        }
+        return taskId;
+      } catch (err) {
+        lastErr = err;
+        if (err?.response?.status !== 404) break; // only fall through on 404
+      }
+    }
+    throw lastErr || new Error('Meshy: image-to-3d submission failed');
   },
 
   async checkStatus(taskId) {
-    const { data } = await axios.get(`${API_BASE}/tasks/${taskId}`, { headers: headers() });
-    // Normalize
-    return {
-      status: data.status?.toUpperCase() || 'UNKNOWN',
-      modelUrl: data.output?.model_url || data.model_url || null,
-      error: data.error || null
-    };
+    if (!taskId) {
+      throw new Error('Meshy: checkStatus called without a taskId');
+    }
+    // According to docs, use /openapi/v2/text-to-3d/:id; image path mirrored if needed
+    const tryPaths = [
+      `${API_BASE_TEXT}/text-to-3d/${taskId}`,
+      `${API_BASE_IMAGE}/image-to-3d/${taskId}`
+    ];
+    let lastErr;
+    for (const url of tryPaths) {
+      try {
+        const { data } = await axios.get(url, { headers: headers() });
+        const status = (data.status || data.state || '').toString().toUpperCase() || 'UNKNOWN';
+        // Prefer GLB URL from model_urls
+        const modelUrl = data.model_urls?.glb || data.output?.model_url || data.model_url || null;
+        const error = data.task_error?.message || data.error || data.message || null;
+        return { status, modelUrl, error };
+      } catch (err) {
+        lastErr = err;
+        if (err?.response?.status !== 404) break; // Only fallback on 404
+      }
+    }
+    // If we reach here, all attempts failed
+    throw lastErr || new Error('Meshy: Failed to fetch task status');
   },
 
   async downloadModel(url, jobId) {
@@ -81,3 +138,12 @@ const origSubmitText = meshyProvider.submitText;
 meshyProvider.submitText = async (...args) => { await takeToken(); return origSubmitText.apply(meshyProvider, args); };
 const origSubmitImage = meshyProvider.submitImage;
 meshyProvider.submitImage = async (...args) => { await takeToken(); return origSubmitImage.apply(meshyProvider, args); };
+
+function safePreview(obj) {
+  try {
+    const json = JSON.stringify(obj);
+    return json.length > 500 ? json.slice(0, 500) + '…' : json;
+  } catch {
+    return String(obj);
+  }
+}
