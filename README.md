@@ -112,6 +112,8 @@ Setup:
 2) Install dependencies
 3) Run backend and frontend in dev
 
+If you don’t have a paid Meshy plan and see 402 Payment Required, set `PROVIDER=mock` in `server/.env` to continue frontend/backend development with a local mock provider (generates a minimal glTF for preview and evaluation).
+
 Commands (run from the repo root):
 
 ```powershell
@@ -135,6 +137,7 @@ Then open the frontend URL printed by Vite (usually http://localhost:5173). The 
   - `MESHY_API_KEY=your_api_key_here`
   - `PUBLIC_BASE_URL=http://localhost:5001` (for absolute file URLs in responses)
   - `RATE_LIMIT_RPS=2` (simple token bucket per process)
+  - `PROVIDER=meshy` (set to `mock` to develop without calling external APIs)
 
 ## 📡 API overview (backend)
 

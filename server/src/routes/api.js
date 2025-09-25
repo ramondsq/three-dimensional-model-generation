@@ -3,7 +3,7 @@ import multer from 'multer';
 import rateLimit from 'express-rate-limit';
 import { ensureStorage, saveDB, createJob, getJob, updateJob, recentJobs, findCachedJob, coalesceRequest, releaseCoalesced } from '../store.js';
 import { normalizePrompt, hashBuffer } from '../utils.js';
-import { meshyProvider } from '../providers/meshy.js';
+import { provider } from '../providers/index.js';
 import { evaluateModel } from '../validator.js';
 
 export const router = express.Router();
@@ -47,11 +47,12 @@ router.post('/generate/text', async (req, res) => {
   res.json({ jobId: job.id, cached: false });
 
   try {
-    const taskId = await meshyProvider.submitText(prompt);
+    const taskId = await provider.submitText(prompt);
     await pollUntilComplete(taskId, job.id);
   } catch (err) {
     console.error(err);
-    updateJob(job.id, { status: 'error', error: err.message || 'generation failed' });
+    const msg = err?.response?.data?.message || err.message || 'generation failed';
+    updateJob(job.id, { status: 'error', error: msg });
   } finally {
     releaseCoalesced(key, job.id);
   }
@@ -76,11 +77,12 @@ router.post('/generate/image', upload.single('image'), async (req, res) => {
   res.json({ jobId: job.id, cached: false });
 
   try {
-    const taskId = await meshyProvider.submitImage(buffer, mimeType, prompt);
+    const taskId = await provider.submitImage(buffer, mimeType, prompt);
     await pollUntilComplete(taskId, job.id);
   } catch (err) {
     console.error(err);
-    updateJob(job.id, { status: 'error', error: err.message || 'generation failed' });
+    const msg = err?.response?.data?.message || err.message || 'generation failed';
+    updateJob(job.id, { status: 'error', error: msg });
   } finally {
     releaseCoalesced(key, job.id);
   }
@@ -113,11 +115,11 @@ async function pollUntilComplete(taskId, jobId) {
   const deadline = start + 15 * 60 * 1000; // 15 min
   let interval = 2000;
   while (Date.now() < deadline) {
-    const status = await meshyProvider.checkStatus(taskId);
+    const status = await provider.checkStatus(taskId);
     if (status.status === 'SUCCEEDED' && status.modelUrl) {
-      const fileInfo = await meshyProvider.downloadModel(status.modelUrl, jobId);
+      const fileInfo = await provider.downloadModel(status.modelUrl, jobId);
       const publicUrl = `${process.env.PUBLIC_BASE_URL || 'http://localhost:5001'}/files/${fileInfo.fileName}`;
-      updateJob(jobId, { status: 'done', filePath: fileInfo.filePath, fileUrl: publicUrl, provider: 'meshy' });
+      updateJob(jobId, { status: 'done', filePath: fileInfo.filePath, fileUrl: publicUrl, provider: process.env.PROVIDER || 'meshy' });
       // Evaluate
       try {
         const metrics = await evaluateModel(fileInfo.filePath);
