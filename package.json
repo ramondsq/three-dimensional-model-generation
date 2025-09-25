@@ -1,0 +1,9 @@
+{
+  "name": "three-dimensional-model-generation",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": ["server", "web"],
+  "scripts": {
+    "dev": "echo Run server and web separately: npm --prefix server run dev & npm --prefix web run dev"
+  }
+}
