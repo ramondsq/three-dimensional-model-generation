@@ -192,11 +192,8 @@ npm --prefix web run dev
 
 ## 🎥 演示视频
 
-你可以在下方直接播放 Demo（若 GitHub 不支持内联播放，请下载本地观看）：
 
-<video src="./demo.mp4" controls preload="metadata" style="max-width: 100%; border-radius: 8px; outline: none;">
-  您的浏览器不支持视频播放。您可以<a href="./demo.mp4">点击这里下载</a>观看。
-  <!-- 为了兼容某些渲染器，提供标准链接 -->
-  <br/>
-  下载链接：<a href="./demo.mp4">demo.mp4</a>
-</video>
+
+https://github.com/user-attachments/assets/eda8052b-76ab-459e-9440-d86d226bebfc
+
+
