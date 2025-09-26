@@ -13,6 +13,10 @@ export default defineConfig({
       '/files': {
         target: 'http://localhost:5001',
         changeOrigin: true
+      },
+      '/view': {
+        target: 'http://localhost:5001',
+        changeOrigin: true
       }
     }
   }

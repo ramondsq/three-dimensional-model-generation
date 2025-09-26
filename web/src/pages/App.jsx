@@ -101,7 +101,7 @@ export default function App() {
             <div style={{ marginTop: 8, padding: 8, background: '#f6f6f6', borderRadius: 6 }}>
               <strong>Similar cached result:</strong>
               <div>
-                <a href={cacheSuggestion.url} target="_blank">Open</a>
+                <a href={`/view/${cacheSuggestion.jobId}`} target="_blank">Open</a>
               </div>
             </div>
           )}
@@ -149,7 +149,7 @@ export default function App() {
               )}
               {r.fileUrl && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-                  <a href={r.fileUrl} target="_blank">Open</a>
+                  <a href={`/view/${r.id}`} target="_blank">Open</a>
                   <a href={r.fileUrl} download>Download</a>
                 </div>
               )}
