@@ -81,6 +81,11 @@ export default function App() {
 
   const canPreview = job?.status === 'done' && job?.fileUrl
   const badgeClass = job?.status ? `badge badge--${job.status}` : 'badge'
+  const showThumbnail = Boolean(job?.thumbnailUrl)
+    && !canPreview
+    && job?.status !== 'done'
+    && job?.providerStatus !== 'SUCCEEDED'
+    && (typeof job?.progress !== 'number' || job.progress < 95)
 
   return (
     <div className="container">
@@ -132,9 +137,7 @@ export default function App() {
             {typeof job?.queue === 'number' && job?.status === 'pending' && (
               <div className="progress__meta">Queued ahead: {job.queue}</div>
             )}
-            {job?.thumbnailUrl && job?.status !== 'done' && (
-              <img className="thumb" src={job.thumbnailUrl} alt="preview" />
-            )}
+            {showThumbnail && (<img className="thumb" src={job.thumbnailUrl} alt="preview" />)}
             {job?.error && <div style={{ color: 'crimson', fontWeight: 600 }}>Error: {job.error}</div>}
 
             {canPreview && (
