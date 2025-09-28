@@ -102,7 +102,27 @@ export const meshyProvider = {
         return { status, modelUrl, error, progress, precedingTasks, thumbnailUrl };
       } catch (err) {
         lastErr = err;
-        if (err?.response?.status !== 404) break; // Only fallback on 404
+        const is404 = err?.response?.status === 404;
+        // If image-by-id is not supported in this API version, try list-and-search
+        const isImageIdUrl = url.includes('/image-to-3d/');
+        if (is404 && isImageIdUrl) {
+          try {
+            const found = await findImageTaskFromList(taskId);
+            if (found) {
+              const status = (found.status || found.state || '').toString().toUpperCase() || 'UNKNOWN';
+              const modelUrl = found.model_urls?.glb || found.output?.model_url || found.model_url || null;
+              const error = found.task_error?.message || found.error || found.message || null;
+              const progress = typeof found.progress === 'number' ? found.progress : Number(found.progress ?? 0);
+              const precedingTasks = typeof found.preceding_tasks === 'number' ? found.preceding_tasks : Number(found.preceding_tasks ?? 0);
+              const thumbnailUrl = found.thumbnail_url || null;
+              return { status, modelUrl, error, progress, precedingTasks, thumbnailUrl };
+            }
+          } catch (e) {
+            // Preserve original error if list fallback also fails
+            lastErr = e;
+          }
+        }
+        if (!is404) break; // Only continue loop on 404
       }
     }
     // If we reach here, all attempts failed
@@ -149,4 +169,24 @@ function safePreview(obj) {
   } catch {
     return String(obj);
   }
+}
+
+// Fallback: list-and-search image-to-3d tasks when GET by id is unavailable
+async function findImageTaskFromList(taskId) {
+  // Try first up to 3 pages of newest tasks
+  const maxPages = 3;
+  for (let page = 1; page <= maxPages; page++) {
+    const params = new URLSearchParams({ page_num: String(page), page_size: '50', sort_by: '-created_at' });
+    const url = `${API_BASE_IMAGE}/image-to-3d?${params.toString()}`;
+    const { data } = await axios.get(url, { headers: headers() });
+    if (Array.isArray(data)) {
+      const match = data.find(item => item?.id === taskId);
+      if (match) return match;
+      if (data.length < 50) break; // no more pages
+    } else {
+      // Unexpected shape; stop to avoid spamming
+      break;
+    }
+  }
+  return null;
 }
