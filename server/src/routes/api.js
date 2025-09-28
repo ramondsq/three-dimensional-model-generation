@@ -123,10 +123,19 @@ async function pollUntilComplete(taskId, jobId) {
       updateJob(jobId, { status: 'error', error: msg });
       return;
     }
+    // Persist live progress so the client can show it
+    const patch = {
+      status: (status.status || '').toLowerCase() === 'in_progress' ? 'running' : (status.status || '').toLowerCase(),
+      providerStatus: status.status,
+      progress: typeof status.progress === 'number' ? Math.max(0, Math.min(100, status.progress)) : undefined,
+      queue: typeof status.precedingTasks === 'number' ? status.precedingTasks : undefined,
+      thumbnailUrl: status.thumbnailUrl || undefined
+    };
+    updateJob(jobId, patch);
     if (status.status === 'SUCCEEDED' && status.modelUrl) {
       const fileInfo = await provider.downloadModel(status.modelUrl, jobId);
       const publicUrl = `${process.env.PUBLIC_BASE_URL || 'http://localhost:5001'}/files/${fileInfo.fileName}`;
-      updateJob(jobId, { status: 'done', filePath: fileInfo.filePath, fileUrl: publicUrl, provider: process.env.PROVIDER || 'meshy' });
+      updateJob(jobId, { status: 'done', progress: 100, filePath: fileInfo.filePath, fileUrl: publicUrl, provider: process.env.PROVIDER || 'meshy' });
       // Evaluate
       try {
         const metrics = await evaluateModel(fileInfo.filePath);

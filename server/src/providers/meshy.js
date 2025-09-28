@@ -96,7 +96,10 @@ export const meshyProvider = {
         // Prefer GLB URL from model_urls
         const modelUrl = data.model_urls?.glb || data.output?.model_url || data.model_url || null;
         const error = data.task_error?.message || data.error || data.message || null;
-        return { status, modelUrl, error };
+        const progress = typeof data.progress === 'number' ? data.progress : Number(data.progress ?? 0);
+        const precedingTasks = typeof data.preceding_tasks === 'number' ? data.preceding_tasks : Number(data.preceding_tasks ?? 0);
+        const thumbnailUrl = data.thumbnail_url || null;
+        return { status, modelUrl, error, progress, precedingTasks, thumbnailUrl };
       } catch (err) {
         lastErr = err;
         if (err?.response?.status !== 404) break; // Only fallback on 404

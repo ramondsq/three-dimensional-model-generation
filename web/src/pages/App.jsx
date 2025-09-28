@@ -112,6 +112,22 @@ export default function App() {
           <div>
             <div>Job ID: {jobId || '-'}</div>
             <div>Status: {job?.status || '-'}</div>
+            {typeof job?.progress === 'number' && job?.status !== 'done' && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ height: 10, background: '#eee', borderRadius: 6, overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.max(0, Math.min(100, job.progress))}%`, height: '100%', background: '#4caf50', transition: 'width 0.5s' }} />
+                </div>
+                <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{Math.round(job.progress)}%</div>
+              </div>
+            )}
+            {typeof job?.queue === 'number' && job?.status === 'pending' && (
+              <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>Queued ahead: {job.queue}</div>
+            )}
+            {job?.thumbnailUrl && job?.status !== 'done' && (
+              <div style={{ marginTop: 8 }}>
+                <img src={job.thumbnailUrl} alt="preview" style={{ maxWidth: '100%', borderRadius: 6 }} />
+              </div>
+            )}
             {job?.error && <div style={{ color: 'crimson' }}>Error: {job.error}</div>}
           </div>
 
@@ -145,7 +161,16 @@ export default function App() {
               {r.fileUrl ? (
                 <model-viewer src={r.fileUrl} style={{ width: '100%', height: 180, background: '#111' }}></model-viewer>
               ) : (
-                <div style={{ height: 180, display: 'grid', placeItems: 'center', background: '#fafafa' }}>{r.status}</div>
+                <div style={{ height: 180, display: 'grid', placeItems: 'center', background: '#fafafa' }}>
+                  <div>{r.status}</div>
+                  {typeof r.progress === 'number' && (
+                    <div style={{ width: '100%', marginTop: 6 }}>
+                      <div style={{ height: 6, background: '#eee', borderRadius: 6, overflow: 'hidden' }}>
+                        <div style={{ width: `${Math.max(0, Math.min(100, r.progress))}%`, height: '100%', background: '#4caf50' }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
               {r.fileUrl && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
