@@ -194,6 +194,5 @@ npm --prefix web run dev
 
 
 
-https://github.com/user-attachments/assets/eda8052b-76ab-459e-9440-d86d226bebfc
-
+https://github.com/user-attachments/assets/b0926a0f-52db-4d58-8413-0e479c93c75c
 
